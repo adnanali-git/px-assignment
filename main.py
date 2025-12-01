@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Path
 from typing import Annotated
 
+from models import VendorA_Response, VendorB_Response
+from constants import Constants
+
 app = FastAPI()
 
 @app.get("/products/{sku}")
