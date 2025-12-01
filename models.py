@@ -1,14 +1,20 @@
 from pydantic import BaseModel
 from enum import Enum
-from typing import NamedTuple
+from typing import NamedTuple, Any
 
 # whether the api response was success or error
-class Response_Status(str, Enum):
+class ResponseStatus(str, Enum):
     success = "SUCCESS"
     error = "ERROR"
 
+# tuple from vendor-response for further processing
+class GenericVendorResponse(NamedTuple):
+    vendor_name: str
+    response_status: ResponseStatus
+    response_body: Any # refer to main branch for further discussion, this is for cleaner, more practical and readable code
+
 # VendorA response structure
-class VendorA_Response(BaseModel):
+class VendorAResponse(BaseModel):
     product_id: int
     product_name: str
     product_description: str | None = None
@@ -16,38 +22,26 @@ class VendorA_Response(BaseModel):
     inventory: int | None 
     product_in_stock: bool
 
-# tuple from VendorA response for further processing
-class VendorA_Wrapped_Response(NamedTuple):
-    vendor_name: str
-    response_status: Response_Status
-    response_body: VendorA_Response | BaseException
-
 # VendorB response structure and related substructure definitions
 # metadata
-class VendorB_Metadata(BaseModel):
+class VendorBMetadata(BaseModel):
     title: str
     description: str
     image_details: str
 
 # stock status
-class VendorB_Stock_Status(str, Enum):
+class VendorBStockStatus(str, Enum):
     in_stock = "IN_STOCK"
     out_of_stock = "OUT_OF_STOCK"
 
 # inventory and stock details
-class VendorB_Inventory(BaseModel):
+class VendorBInventory(BaseModel):
     product_inventory: int
-    stock_status: VendorB_Stock_Status
+    stock_status: VendorBStockStatus
 
 # main response structure
-class VendorB_Response(BaseModel):
+class VendorBResponse(BaseModel):
     id: str
-    product_metadata: VendorB_Metadata
+    product_metadata: VendorBMetadata
     cost: float
-    inventory: VendorB_Inventory
-
-# tuple from VendorB response for further processing
-class VendorB_Wrapped_Response(NamedTuple):
-    vendor_name: str
-    response_status: Response_Status
-    response_body: VendorB_Response | BaseException
+    inventory: VendorBInventory

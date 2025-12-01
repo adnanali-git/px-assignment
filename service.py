@@ -1,25 +1,125 @@
-from models import VendorA_Wrapped_Response, VendorB_Wrapped_Response
+from models import GenericVendorResponse, VendorAResponse, ResponseStatus, VendorBResponse, VendorBStockStatus
 from constants import Constants
+from typing import NamedTuple
+
+class InvalidResponseStructure(Exception):
+    pass
+
+class InvalidVendorException(Exception):
+    pass
+
+class NormalizedParams(NamedTuple):
+    stock: int
+    price: float
+    vendor_name: str
 
 # the business logic resides here
 class GetBestVendor:
     @staticmethod
-    def match_result_to_func(result: VendorA_Wrapped_Response | VendorB_Wrapped_Response) -> tuple:
-        match result.vendor_name:
-            case Constants.VENDORA_NAME:
-                # process
-                # return namedtuple of (stock, price, vendor_name)
-            case Constants.VENDORB_NAME:
-                # process
-                # return namedtuple of (stock, price, vendor_name)
+    def get_best_vendor_from_normalized_tuple_list(normalized_tuple_list: list[NormalizedParams]) -> str:
+        # drop all tuples with stock = 0
+        iter1 = [tup for tup in normalized_tuple_list if tup.stock > 0]
+
+        # check if the list is empty, then return OOS message
+        if not iter1: return Constants.BEST_VENDOR_SELECTION_OOS_MESSAGE
+
+        # else proceed to further filtering
+        best_vendor = sorted(iter1, key=lambda tup: tup.price)[0].vendor_name
+        return best_vendor
 
     @staticmethod
-    def get_best_vendor(result_tuple: tuple[VendorA_Wrapped_Response, VendorB_Wrapped_Response]) -> str:
-        stock_price = [] # list of (stock, price, vendor_name) tuples
+    def validate_price(price: float) -> bool:
+        try:
+            float(price)
+            return (price > 0)
+        except ValueError:
+            return False
+
+    @staticmethod
+    def normalize_response_for_vendorA(resp: GenericVendorResponse) -> NormalizedParams:
+        vname = Constants.VENDORA_NAME # vendor_name, declared as variable for easier reuse
+
+        assert(resp.vendor_name == vname) # this will break if someone updates the code erroneously
+
+        # default values
+        stockA: int = 0
+        priceA: float = 0
+
+        # no retries implemented yet so stock treated as 0
+        if resp.response_status == ResponseStatus.error: 
+            return NormalizedParams(stock=stockA, price=priceA, vendor_name=vname)
+        
+        # logic specific to the response structure of vendorA
+        # validate the response structure
+        try:
+            respA = VendorAResponse.model_validate(resp.response_body)
+        except Exception as e:
+            raise InvalidResponseStructure("Error validating the response body for vendorA: {}".format(e))
+
+        # stock normalisation
+        if (respA.inventory == 0 and respA.product_in_stock): stockA = 5
+        # else stockA = 0 and that's already the default
+
+        # price validation
+        if GetBestVendor.validate_price(respA.price): # valid price, set it
+            priceA = respA.price
+        else: # discard it i.e. treat it as stock=0
+            return NormalizedParams(stock=0, price=priceA, vendor_name=vname)
+        
+        # return the normalized params
+        return NormalizedParams(stock=stockA, price=priceA, vendor_name=vname)
+    
+    @staticmethod
+    def normalize_response_for_vendorB(resp: GenericVendorResponse) -> NormalizedParams:
+        vname = Constants.VENDORB_NAME # vendor_name, declared as variable for easier reuse
+
+        assert(resp.vendor_name == vname) # this will break if someone updates the code erroneously
+
+        # default values
+        stockB: int = 0
+        priceB: float = 0
+
+        # no retries implemented yet so stock treated as 0
+        if resp.response_status == ResponseStatus.error: 
+            return NormalizedParams(stock=stockB, price=priceB, vendor_name=vname)
+        
+        # logic specific to the response structure of vendorB
+        # validate the response structure
+        try:
+            respB = VendorBResponse.model_validate(resp.response_body)
+        except Exception as e:
+            raise InvalidResponseStructure("Error validating the response body for vendorB: {}".format(e))
+
+        # stock normalisation
+        if (respB.inventory.product_inventory == 0 and respB.inventory.stock_status == VendorBStockStatus.in_stock): stockB = 5
+        # else stockB = 0 and that's already the default
+
+        # price validation
+        if GetBestVendor.validate_price(respB.cost): # valid price, set it
+            priceB = respB.cost
+        else: # discard it i.e. treat it as stock=0
+            return NormalizedParams(stock=0, price=priceB, vendor_name=vname)
+        
+        # return the normalized params
+        return NormalizedParams(stock=stockB, price=priceB, vendor_name=vname)
+
+    @staticmethod
+    def get_normalized_parameters(result: GenericVendorResponse) -> NormalizedParams: # return namedtuple of (stock, price, vendor_name)
+        match result.vendor_name: # if you add more vendors, then add the respective case here (one-time effort)
+            case Constants.VENDORA_NAME:
+                return GetBestVendor.normalize_response_for_vendorA(result)
+            case Constants.VENDORB_NAME:
+                return GetBestVendor.normalize_response_for_vendorB(result)
+            case _:
+                raise InvalidVendorException("Vendor name doesn't exist!")
+
+    @staticmethod
+    def get_best_vendor(result_tuple: tuple[GenericVendorResponse, ...]) -> str:
+        normalized_stock_price_list: list[NormalizedParams] = [] # list of (stock, price, vendor_name) tuples
 
         # iterate
         for result in result_tuple:
-            stock_price.append(match_result_to_func(result))
+            normalized_stock_price_list.append(GetBestVendor.get_normalized_parameters(result))
         
         # get best vendor from the stock_price list
-        # return the vendor name
+        return GetBestVendor.get_best_vendor_from_normalized_tuple_list(normalized_stock_price_list)
