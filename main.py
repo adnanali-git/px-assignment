@@ -57,7 +57,7 @@ async def call_vendorB(sku: str) -> GenericVendorResponse:
         fpath = SimulatorB(sku).mock_file_path
         # read file
         with open(fpath, "r") as mock_file:
-            respB = decode(mock_file.read())
+            respB: VendorBResponse = decode(mock_file.read())
         mock_file.close()
         # return response
         return GenericVendorResponse(
