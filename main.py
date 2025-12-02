@@ -4,11 +4,11 @@ from httpx import AsyncClient
 from asyncio import gather
 from jsonpickle import decode
 
-from models import ResponseStatus, GenericVendorResponse, VendorAResponse, VendorBResponse
+from models import ResponseStatus, GenericVendorResponse, VendorAResponse, VendorBResponse, VendorCResponse
 from constants import Constants
 from service import GetBestVendor
 from cache import RedisCache
-from simulators import SimulatorA, SimulatorB
+from simulators import SimulatorA, SimulatorB, SimulatorC
 from switch import SwitchValues
 
 app = FastAPI()
@@ -47,7 +47,6 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
                     response_status=ResponseStatus.error, # error
                     response_body=errA # for further processing if needed
                 )
-    
 
 # async call to vendorB
 async def call_vendorB(sku: str) -> GenericVendorResponse:
@@ -92,6 +91,43 @@ which might require extra logic unique to each vendor (separation of concerns)
 the introduction of Any yet keeping it separate for the same reason mentioned above. 
 '''
 
+# async call to vendorC
+async def call_vendorC(sku: str) -> GenericVendorResponse:
+    # mock via json-files
+    if SwitchValues.IS_MOCKING_VIA_FILE:
+        # get mock_file path
+        fpath = SimulatorC(sku).mock_file_path
+        # read file
+        with open(fpath, "r") as mock_file:
+            respC: VendorCResponse = decode(mock_file.read())
+            print("respC = ")
+            print(respC)
+        mock_file.close()
+        # return response
+        return GenericVendorResponse(
+                vendor_name=Constants.VENDORC_NAME, 
+                response_status=ResponseStatus.success,
+                response_body=respC
+            )
+    else: # mock via actual API calls
+        try:
+            async with AsyncClient() as clientC:
+                respC = await clientC.get(Constants.VENDORC_ENDPOINT)
+                respC.raise_for_status() # gets caught in the next block if HTTP Error
+
+                # success
+                return GenericVendorResponse(
+                    vendor_name=Constants.VENDORC_NAME, 
+                    response_status=ResponseStatus.success,
+                    response_body=respC.json()
+                )
+        except BaseException as errC: 
+            return GenericVendorResponse(
+                    vendor_name=Constants.VENDORC_NAME, 
+                    response_status=ResponseStatus.error, # error
+                    response_body=errC # for further processing if needed
+                )
+
 @app.get("/products/{sku}")
 async def get_sku(sku: Annotated[str, Path(min_length=3, max_length=20, pattern="^[a-zA-Z0-9]+$")]) -> str: # return type can be made into an Enum also if the vendors don't change frequently
     # this block is now more generic after introducing "Any" type for the "response_body" field
@@ -112,6 +148,7 @@ async def get_sku(sku: Annotated[str, Path(min_length=3, max_length=20, pattern=
     results = await gather(
         call_vendorA(sku), 
         call_vendorB(sku),
+        call_vendorC(sku),
         # return_exceptions=True, # to run all tasks to completion, even if some raise exceptions 
     )
 

@@ -45,3 +45,22 @@ class VendorBResponse(BaseModel):
     product_metadata: VendorBMetadata
     cost: float
     inventory: VendorBInventory
+
+# VendorC response structure and related substructure definitions
+# stock status
+class VendorCStockStatus(str, Enum):
+    in_stock = "YES"
+    out_of_stock = "OOS"
+
+# other details
+class VendorCDetails(BaseModel):
+    name: str
+    desc: str
+    product_price: float
+    p_inventory: int
+    p_stock: VendorCStockStatus
+
+# main response structure
+class VendorCResponse(BaseModel):
+    sku_id: str
+    details: VendorCDetails
