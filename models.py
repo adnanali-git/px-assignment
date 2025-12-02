@@ -47,6 +47,12 @@ class VendorBResponse(BaseModel):
     inventory: VendorBInventory
 
 # VendorC response structure and related substructure definitions
+# which case for vendorC
+class CaseForVendorC(str, Enum):
+    slow = "SLOW"
+    fail = "FAIL"
+    okay = "SUCCESS"
+
 # stock status
 class VendorCStockStatus(str, Enum):
     in_stock = "YES"

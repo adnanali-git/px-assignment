@@ -10,3 +10,6 @@ class Constants:
     VENDORC_ENDPOINT = "https://mocki.io/v1/e7517f58-f058-4208-bad7-9754ddf6e84x"
 
     BEST_VENDOR_SELECTION_OOS_MESSAGE = "OUT_OF_STOCK"
+
+    # move to .env ??
+    VENDOR_API_TIMEOUT = 2.0 # in seconds

@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Path
 from typing import Annotated
 from httpx import AsyncClient
-from asyncio import gather
+from asyncio import gather, sleep
 from jsonpickle import decode
+from random import uniform
 
-from models import ResponseStatus, GenericVendorResponse, VendorAResponse, VendorBResponse, VendorCResponse
+from models import ResponseStatus, GenericVendorResponse, CaseForVendorC
 from constants import Constants
 from service import GetBestVendor
 from cache import RedisCache
@@ -21,7 +22,7 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
         fpath = SimulatorA(sku).mock_file_path
         # read file
         with open(fpath, "r") as mock_file:
-            respA: VendorAResponse = decode(mock_file.read())
+            respA = decode(mock_file.read())
         mock_file.close()
         # return response
         return GenericVendorResponse(
@@ -56,7 +57,7 @@ async def call_vendorB(sku: str) -> GenericVendorResponse:
         fpath = SimulatorB(sku).mock_file_path
         # read file
         with open(fpath, "r") as mock_file:
-            respB: VendorBResponse = decode(mock_file.read())
+            respB = decode(mock_file.read())
         mock_file.close()
         # return response
         return GenericVendorResponse(
@@ -93,15 +94,20 @@ the introduction of Any yet keeping it separate for the same reason mentioned ab
 
 # async call to vendorC
 async def call_vendorC(sku: str) -> GenericVendorResponse:
+    # call simulator for vendorC
+    sim_vendorC = SimulatorC(sku)
+
     # mock via json-files
-    if SwitchValues.IS_MOCKING_VIA_FILE:
+    if sim_vendorC.case_for_vendorC != CaseForVendorC.fail:
         # get mock_file path
-        fpath = SimulatorC(sku).mock_file_path
+        fpath = sim_vendorC.mock_file_path
+        # if case = slow, then sleep
+        if sim_vendorC.case_for_vendorC == CaseForVendorC.slow:
+            await sleep(uniform(0.0, Constants.VENDOR_API_TIMEOUT/2))
+            # print("VendorC is slow!")
         # read file
         with open(fpath, "r") as mock_file:
-            respC: VendorCResponse = decode(mock_file.read())
-            print("respC = ")
-            print(respC)
+            respC = decode(mock_file.read())
         mock_file.close()
         # return response
         return GenericVendorResponse(
@@ -110,6 +116,7 @@ async def call_vendorC(sku: str) -> GenericVendorResponse:
                 response_body=respC
             )
     else: # mock via actual API calls
+        # print("VendorC must fail!")
         try:
             async with AsyncClient() as clientC:
                 respC = await clientC.get(Constants.VENDORC_ENDPOINT)

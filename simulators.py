@@ -1,14 +1,20 @@
 import models
-from jsonpickle import encode
-from random import uniform, choices, randint
+import random
 from string import ascii_letters, digits, punctuation
+from jsonpickle import encode
 
 # all helper functions under this class
 class HelperFuncs:
     @staticmethod
     def gen_rand_string(length: int, charset: str) -> str:
         # return a string of length "length" (value for param k) from given charset
-        return "".join(choices(charset, k=length))
+        return "".join(random.choices(charset, k=length))
+    
+    @staticmethod
+    def gen_case_for_vendorC() -> models.CaseForVendorC:
+        return random.choice([models.CaseForVendorC.slow,
+                              models.CaseForVendorC.fail,
+                              models.CaseForVendorC.okay])
 
 # bounds for random generation
 class Constants:
@@ -41,35 +47,35 @@ class SimulatorA:
         self.respA.product_id = sku
         # set product name
         self.respA.product_name = HelperFuncs.gen_rand_string(
-            randint(Constants.PRODUCT_NAME_MIN, Constants.PRODUCT_NAME_MAX),
+            random.randint(Constants.PRODUCT_NAME_MIN, Constants.PRODUCT_NAME_MAX),
             Constants.CHARSET
         )
         # set product description
-        switch_on = randint(0, 1) # randomly select between a randomly generated description or None
+        switch_on = random.randint(0, 1) # randomly select between a randomly generated description or None
         if switch_on: # then set a description
             self.respA.product_description = HelperFuncs.gen_rand_string(
-            randint(Constants.PRODUCT_DESCRIPTION_MIN, Constants.PRODUCT_DESCRIPTION_MAX),
+            random.randint(Constants.PRODUCT_DESCRIPTION_MIN, Constants.PRODUCT_DESCRIPTION_MAX),
             Constants.CHARSET
         )
         else: # else None
             self.respA.product_description = None
         
         # set price to a randomly generated float
-        self.respA.price = uniform(Constants.MIN_PRICE, Constants.MAX_PRICE)
+        self.respA.price = random.uniform(Constants.MIN_PRICE, Constants.MAX_PRICE)
 
         # set inventory & stock_status
-        switch_on = randint(0, 1)
+        switch_on = random.randint(0, 1)
         if switch_on: # then stock = 5
-            self.respA.inventory = 0 if randint(0, 1) else None
+            self.respA.inventory = 0 if random.randint(0, 1) else None
             self.respA.product_in_stock = True
         else:
-            switch_on = randint(0, 1)
+            switch_on = random.randint(0, 1)
             if switch_on: # in_stock = True
                 self.respA.product_in_stock = True
-                self.respA.inventory = randint(1, Constants.MAX_STOCK) # cannot be 0 to avoid above case
+                self.respA.inventory = random.randint(1, Constants.MAX_STOCK) # cannot be 0 to avoid above case
             else: 
                 self.respA.product_in_stock = False
-                self.respA.inventory = randint(0, Constants.MAX_STOCK) # can be 0
+                self.respA.inventory = random.randint(0, Constants.MAX_STOCK) # can be 0
 
         '''
         [TODO] If time allows: 
@@ -106,14 +112,14 @@ class SimulatorB:
         self.respB.id = sku
         # set product name
         self.respB.product_metadata.title = HelperFuncs.gen_rand_string(
-            randint(Constants.PRODUCT_NAME_MIN, Constants.PRODUCT_NAME_MAX),
+            random.randint(Constants.PRODUCT_NAME_MIN, Constants.PRODUCT_NAME_MAX),
             Constants.CHARSET
         )
         # set product description
-        switch_on = randint(0, 1) # randomly select between a randomly generated description or empty string
+        switch_on = random.randint(0, 1) # randomly select between a randomly generated description or empty string
         if switch_on: # then set a description
             self.respB.product_metadata.description = HelperFuncs.gen_rand_string(
-            randint(Constants.PRODUCT_DESCRIPTION_MIN, Constants.PRODUCT_DESCRIPTION_MAX),
+            random.randint(Constants.PRODUCT_DESCRIPTION_MIN, Constants.PRODUCT_DESCRIPTION_MAX),
             Constants.CHARSET
         )
         else: # else None
@@ -123,21 +129,21 @@ class SimulatorB:
         self.respB.product_metadata.image_details = ""
         
         # set price to a randomly generated float
-        self.respB.cost = uniform(Constants.MIN_PRICE, Constants.MAX_PRICE)
+        self.respB.cost = random.uniform(Constants.MIN_PRICE, Constants.MAX_PRICE)
 
         # set inventory & stock_status
-        switch_on = randint(0, 1)
+        switch_on = random.randint(0, 1)
         if switch_on: # then stock = 5
             self.respB.inventory.product_inventory = 0
             self.respB.inventory.stock_status = models.VendorBStockStatus.in_stock
         else:
-            switch_on = randint(0, 1)
+            switch_on = random.randint(0, 1)
             if switch_on: # in_stock = True
                 self.respB.inventory.stock_status = models.VendorBStockStatus.in_stock
-                self.respB.inventory.product_inventory = randint(1, Constants.MAX_STOCK) # cannot be 0 to avoid above case
+                self.respB.inventory.product_inventory = random.randint(1, Constants.MAX_STOCK) # cannot be 0 to avoid above case
             else: 
                 self.respB.inventory.stock_status = models.VendorBStockStatus.out_of_stock
-                self.respB.inventory.product_inventory = randint(0, Constants.MAX_STOCK) # can be 0
+                self.respB.inventory.product_inventory = random.randint(0, Constants.MAX_STOCK) # can be 0
 
         '''
         [TODO] If time allows: 
@@ -150,7 +156,6 @@ class SimulatorB:
             mock_file.write(encode(self.respB))
         mock_file.close()
 
-# simulator for vendorC
 class SimulatorC: 
     # declare respC with filler values to have a valid definition
     respC: models.VendorCResponse = models.VendorCResponse(
@@ -167,39 +172,45 @@ class SimulatorC:
     mock_file_path: str = "./simulated_responses/vendorC_resp.json"
 
     def __init__(self, sku: str):
+        # decide which case
+        self.case_for_vendorC = HelperFuncs.gen_case_for_vendorC()
+
+        # if it fails, then no need to write to file so return
+        if self.case_for_vendorC == models.CaseForVendorC.fail: return 
+            
         # set sku
         self.respC.sku_id = sku
         # set product name
         self.respC.details.name = HelperFuncs.gen_rand_string(
-            randint(Constants.PRODUCT_NAME_MIN, Constants.PRODUCT_NAME_MAX),
+            random.randint(Constants.PRODUCT_NAME_MIN, Constants.PRODUCT_NAME_MAX),
             Constants.CHARSET
         )
         # set product description
-        switch_on = randint(0, 1) # randomly select between a randomly generated description or empty string
+        switch_on = random.randint(0, 1) # randomly select between a randomly generated description or empty string
         if switch_on: # then set a description
             self.respC.details.desc = HelperFuncs.gen_rand_string(
-            randint(Constants.PRODUCT_DESCRIPTION_MIN, Constants.PRODUCT_DESCRIPTION_MAX),
+            random.randint(Constants.PRODUCT_DESCRIPTION_MIN, Constants.PRODUCT_DESCRIPTION_MAX),
             Constants.CHARSET
         )
         else: # else None
             self.respC.details.desc = ""
         
         # set price to a randomly generated float
-        self.respC.details.product_price = uniform(Constants.MIN_PRICE, Constants.MAX_PRICE)
+        self.respC.details.product_price = random.uniform(Constants.MIN_PRICE, Constants.MAX_PRICE)
 
         # set inventory & stock_status
-        switch_on = randint(0, 1)
+        switch_on = random.randint(0, 1)
         if switch_on: # then stock = 5
             self.respC.details.p_inventory = 0
             self.respC.details.p_stock = models.VendorCStockStatus.in_stock
         else:
-            switch_on = randint(0, 1)
+            switch_on = random.randint(0, 1)
             if switch_on: # in_stock = True
                 self.respC.details.p_stock = models.VendorCStockStatus.in_stock
-                self.respC.details.p_inventory = randint(1, Constants.MAX_STOCK) # cannot be 0 to avoid above case
+                self.respC.details.p_inventory = random.randint(1, Constants.MAX_STOCK) # cannot be 0 to avoid above case
             else: 
                 self.respC.details.p_stock = models.VendorCStockStatus.out_of_stock
-                self.respC.details.p_inventory = randint(0, Constants.MAX_STOCK) # can be 0
+                self.respC.details.p_inventory = random.randint(0, Constants.MAX_STOCK) # can be 0
 
         '''
         [TODO] If time allows: 
