@@ -24,7 +24,8 @@ class GetBestVendor:
         if not iter1: return Constants.BEST_VENDOR_SELECTION_OOS_MESSAGE
 
         # else proceed to further filtering
-        best_vendor = sorted(iter1, key=lambda tup: tup.price)[0].vendor_name
+        # sort asc by price, if tie then sort desc by stock hence minus sign
+        best_vendor = sorted(iter1, key=lambda tup: (tup.price, -tup.stock))[0].vendor_name
         return best_vendor
 
     @staticmethod

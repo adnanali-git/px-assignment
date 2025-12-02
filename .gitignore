@@ -210,3 +210,6 @@ __marimo__/
 # self
 skip-me/
 .DS_Store
+
+# redis
+dump.rdb
