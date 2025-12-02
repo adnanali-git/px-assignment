@@ -4,6 +4,7 @@ from httpx import AsyncClient
 from asyncio import gather, sleep
 from jsonpickle import decode
 from random import uniform
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from models import ResponseStatus, GenericVendorResponse, CaseForVendorC
 from constants import Constants
@@ -14,7 +15,14 @@ from switch import SwitchValues
 
 app = FastAPI()
 
+# retry logic
+retry_policy = retry(
+    stop=stop_after_attempt(1 + Constants.VENDOR_API_RETRIES),
+    wait=wait_fixed(Constants.DELAY_BETWEEN_RETRIES)
+)
+
 # async call to vendorA
+@retry_policy
 async def call_vendorA(sku: str) -> GenericVendorResponse:
     # mock via json-files
     if SwitchValues.IS_MOCKING_VIA_FILE:
@@ -50,6 +58,7 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
                 )
 
 # async call to vendorB
+@retry_policy
 async def call_vendorB(sku: str) -> GenericVendorResponse:
     # mock via json-files
     if SwitchValues.IS_MOCKING_VIA_FILE:
@@ -93,6 +102,7 @@ the introduction of Any yet keeping it separate for the same reason mentioned ab
 '''
 
 # async call to vendorC
+@retry_policy
 async def call_vendorC(sku: str) -> GenericVendorResponse:
     # call simulator for vendorC
     sim_vendorC = SimulatorC(sku)
