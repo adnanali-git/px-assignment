@@ -2,53 +2,87 @@ from fastapi import FastAPI, Path
 from typing import Annotated
 from httpx import AsyncClient
 from asyncio import gather
+from jsonpickle import decode
 
-from models import ResponseStatus, GenericVendorResponse
+from models import ResponseStatus, GenericVendorResponse, VendorAResponse, VendorBResponse
 from constants import Constants
 from service import GetBestVendor
 from cache import RedisCache
+from simulators import SimulatorA, SimulatorB
+from switch import SwitchValues
 
 app = FastAPI()
 
 # async call to vendorA
-async def call_vendorA() -> GenericVendorResponse:
-    try:
-        async with AsyncClient() as clientA:
-            respA = await clientA.get(Constants.VENDORA_ENDPOINT)
-            respA.raise_for_status() # gets caught in the next block if HTTP Error
-
-            # success
-            return GenericVendorResponse(
-                vendor_name=Constants.VENDORA_NAME, 
-                response_status=ResponseStatus.success,
-                response_body=respA.json()
-            )
-    except BaseException as errA:
+async def call_vendorA(sku: str) -> GenericVendorResponse:
+    # mock via json-files
+    if SwitchValues.IS_MOCKING_VIA_FILE:
+        # get mock_file path
+        fpath = SimulatorA(sku).mock_file_path
+        # read file
+        with open(fpath, "r") as mock_file:
+            respA: VendorAResponse = decode(mock_file.read())
+        mock_file.close()
+        # return response
         return GenericVendorResponse(
                 vendor_name=Constants.VENDORA_NAME, 
-                response_status=ResponseStatus.error, # error
-                response_body=errA # for further processing if needed
+                response_status=ResponseStatus.success,
+                response_body=respA
             )
+    else: # mock via actual API calls
+        try:
+            async with AsyncClient() as clientA:
+                respA = await clientA.get(Constants.VENDORA_ENDPOINT)
+                respA.raise_for_status() # gets caught in the next block if HTTP Error
+
+                # success
+                return GenericVendorResponse(
+                    vendor_name=Constants.VENDORA_NAME, 
+                    response_status=ResponseStatus.success,
+                    response_body=respA.json()
+                )
+        except BaseException as errA:
+            return GenericVendorResponse(
+                    vendor_name=Constants.VENDORA_NAME, 
+                    response_status=ResponseStatus.error, # error
+                    response_body=errA # for further processing if needed
+                )
+    
 
 # async call to vendorB
-async def call_vendorB() -> GenericVendorResponse:
-    try:
-        async with AsyncClient() as clientB:
-            respB = await clientB.get(Constants.VENDORB_ENDPOINT)
-            respB.raise_for_status() # gets caught in the next block if HTTP Error
-
-            # success
-            return GenericVendorResponse(
-                vendor_name=Constants.VENDORB_NAME, 
-                response_status=ResponseStatus.success,
-                response_body=respB.json()
-            )
-    except BaseException as errB: 
+async def call_vendorB(sku: str) -> GenericVendorResponse:
+    # mock via json-files
+    if SwitchValues.IS_MOCKING_VIA_FILE:
+        # get mock_file path
+        fpath = SimulatorB(sku).mock_file_path
+        # read file
+        with open(fpath, "r") as mock_file:
+            respB = decode(mock_file.read())
+        mock_file.close()
+        # return response
         return GenericVendorResponse(
                 vendor_name=Constants.VENDORB_NAME, 
-                response_status=ResponseStatus.error, # error
-                response_body=errB # for further processing if needed
+                response_status=ResponseStatus.success,
+                response_body=respB
             )
+    else: # mock via actual API calls
+        try:
+            async with AsyncClient() as clientB:
+                respB = await clientB.get(Constants.VENDORB_ENDPOINT)
+                respB.raise_for_status() # gets caught in the next block if HTTP Error
+
+                # success
+                return GenericVendorResponse(
+                    vendor_name=Constants.VENDORB_NAME, 
+                    response_status=ResponseStatus.success,
+                    response_body=respB.json()
+                )
+        except BaseException as errB: 
+            return GenericVendorResponse(
+                    vendor_name=Constants.VENDORB_NAME, 
+                    response_status=ResponseStatus.error, # error
+                    response_body=errB # for further processing if needed
+                )
 
 '''
 Even though currently the logic for both the above functions is similar,
@@ -76,8 +110,8 @@ async def get_sku(sku: Annotated[str, Path(min_length=3, max_length=20, pattern=
 
     # Else fetch via API call
     results = await gather(
-        call_vendorA(), 
-        call_vendorB(),
+        call_vendorA(sku), 
+        call_vendorB(sku),
         # return_exceptions=True, # to run all tasks to completion, even if some raise exceptions 
     )
 

@@ -15,7 +15,7 @@ class GenericVendorResponse(NamedTuple):
 
 # VendorA response structure
 class VendorAResponse(BaseModel):
-    product_id: int
+    product_id: str
     product_name: str
     product_description: str | None = None
     price: float
