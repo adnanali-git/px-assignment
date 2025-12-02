@@ -13,7 +13,7 @@ from constants import Constants
 from service import GetBestVendor
 from cache import RedisCache
 from simulators import SimulatorA, SimulatorB, SimulatorC
-from switch import SwitchValues
+import switch
 
 app = FastAPI()
 
@@ -27,7 +27,7 @@ retry_policy = retry(
 @retry_policy
 async def call_vendorA(sku: str) -> GenericVendorResponse:
     # mock via json-files
-    if SwitchValues.IS_MOCKING_VIA_FILE:
+    if switch.SwitchValues.IS_MOCKING_VIA_FILE:
         # get mock_file path
         fpath = SimulatorA(sku).mock_file_path
         # read file
@@ -63,7 +63,7 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
 @retry_policy
 async def call_vendorB(sku: str) -> GenericVendorResponse:
     # mock via json-files
-    if SwitchValues.IS_MOCKING_VIA_FILE:
+    if switch.SwitchValues.IS_MOCKING_VIA_FILE:
         # get mock_file path
         fpath = SimulatorB(sku).mock_file_path
         # read file
@@ -105,8 +105,9 @@ the introduction of Any yet keeping it separate for the same reason mentioned ab
 
 # circuit breaker for vendorC
 vendorC_circuit_breaker = CircuitBreaker(
-    fail_max=3, # open after 3 consecutive failures
-    timeout_duration=timedelta(seconds=30) # half-open after 30s elapse
+    fail_max=switch.CircuitBreakerParams.VENDORC_CB_MAX_FAIL, # open after 3 consecutive failures
+    timeout_duration=timedelta(
+        seconds=switch.CircuitBreakerParams.VENDORC_CB_OPEN_DURATION) # half-open after 30s elapse
 )
 
 # async call to vendorC

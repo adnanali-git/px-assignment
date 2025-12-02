@@ -5,3 +5,11 @@ class SwitchValues:
     # the simulation/mocking requirement in this task. It doesn't arise in a
     # real-life production codebase.
     IS_MOCKING_VIA_FILE: bool = True 
+
+# ideally put in a switch microservice outside this codebase
+# so that it can be swiftly altered in emergency scenarios saving
+# the time needed to push new code just for modifying these values and then redeploying it
+class CircuitBreakerParams:
+    # params for vendorC
+    VENDORC_CB_MAX_FAIL = 3 # after these many failures, open the circuit
+    VENDORC_CB_OPEN_DURATION = 30 # in seconds
