@@ -32,7 +32,7 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
             )
     else: # mock via actual API calls
         try:
-            async with AsyncClient() as clientA:
+            async with AsyncClient(timeout=Constants.VENDOR_API_TIMEOUT) as clientA:
                 respA = await clientA.get(Constants.VENDORA_ENDPOINT)
                 respA.raise_for_status() # gets caught in the next block if HTTP Error
 
@@ -67,7 +67,7 @@ async def call_vendorB(sku: str) -> GenericVendorResponse:
             )
     else: # mock via actual API calls
         try:
-            async with AsyncClient() as clientB:
+            async with AsyncClient(timeout=Constants.VENDOR_API_TIMEOUT) as clientB:
                 respB = await clientB.get(Constants.VENDORB_ENDPOINT)
                 respB.raise_for_status() # gets caught in the next block if HTTP Error
 
@@ -118,7 +118,7 @@ async def call_vendorC(sku: str) -> GenericVendorResponse:
     else: # mock via actual API calls
         # print("VendorC must fail!")
         try:
-            async with AsyncClient() as clientC:
+            async with AsyncClient(timeout=Constants.VENDOR_API_TIMEOUT) as clientC:
                 respC = await clientC.get(Constants.VENDORC_ENDPOINT)
                 respC.raise_for_status() # gets caught in the next block if HTTP Error
 
