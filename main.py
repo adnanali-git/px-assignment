@@ -5,6 +5,8 @@ from asyncio import gather, sleep
 from jsonpickle import decode
 from random import uniform
 from tenacity import retry, stop_after_attempt, wait_fixed
+from aiobreaker import CircuitBreaker
+from datetime import timedelta
 
 from models import ResponseStatus, GenericVendorResponse, CaseForVendorC
 from constants import Constants
@@ -101,7 +103,14 @@ which might require extra logic unique to each vendor (separation of concerns)
 the introduction of Any yet keeping it separate for the same reason mentioned above. 
 '''
 
+# circuit breaker for vendorC
+vendorC_circuit_breaker = CircuitBreaker(
+    fail_max=3, # open after 3 consecutive failures
+    timeout_duration=timedelta(seconds=30) # half-open after 30s elapse
+)
+
 # async call to vendorC
+@vendorC_circuit_breaker
 @retry_policy
 async def call_vendorC(sku: str) -> GenericVendorResponse:
     # call simulator for vendorC
