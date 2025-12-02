@@ -1,7 +1,12 @@
+# project-file imports
 import models
+import constants
+
+# library imports
 import random
 from string import ascii_letters, digits, punctuation
 from jsonpickle import encode
+from time import time_ns
 
 # all helper functions under this class
 class HelperFuncs:
@@ -15,6 +20,15 @@ class HelperFuncs:
         return random.choice([models.CaseForVendorC.slow,
                               models.CaseForVendorC.fail,
                               models.CaseForVendorC.okay])
+    
+    @staticmethod
+    def set_timestamp_in_millis() -> int: # return timestamp in millis
+        # should the timestamp be less than 10m old?
+        fresh = random.randint(0, 1)
+        if fresh: # assuming limit is more than 10s
+            return (time_ns() - random.randint(0, (constants.Constants.FRESHNESS_LIMIT - 10) * 1_000_000_000)) // 1_000_000 # subtracted 10 to avoid edge-cases
+        else: # old timestamp
+            return (time_ns() - (constants.Constants.FRESHNESS_LIMIT + 1) * 1_000_000_000) // 1_000_000
 
 # bounds for random generation
 class Constants:
@@ -37,7 +51,8 @@ class SimulatorA:
         product_name="",
         price=0,
         inventory=None,
-        product_in_stock=False
+        product_in_stock=False,
+        last_updated=0
     )
     # file path for external access
     mock_file_path: str = "./simulated_responses/vendorA_resp.json"
@@ -76,6 +91,9 @@ class SimulatorA:
             else: 
                 self.respA.product_in_stock = False
                 self.respA.inventory = random.randint(0, Constants.MAX_STOCK) # can be 0
+        
+        # set timestamp
+        self.respA.last_updated = HelperFuncs.set_timestamp_in_millis()
 
         '''
         [TODO] If time allows: 
@@ -102,7 +120,8 @@ class SimulatorB:
         inventory=models.VendorBInventory(
             product_inventory=0,
             stock_status=models.VendorBStockStatus.out_of_stock
-        )
+        ),
+        last_refresh_time=0
     )
     # file path for external access
     mock_file_path: str = "./simulated_responses/vendorB_resp.json"
@@ -144,6 +163,9 @@ class SimulatorB:
             else: 
                 self.respB.inventory.stock_status = models.VendorBStockStatus.out_of_stock
                 self.respB.inventory.product_inventory = random.randint(0, Constants.MAX_STOCK) # can be 0
+        
+        # set timestamp
+        self.respB.last_refresh_time = HelperFuncs.set_timestamp_in_millis()
 
         '''
         [TODO] If time allows: 
@@ -166,7 +188,8 @@ class SimulatorC:
             product_price=0,
             p_inventory=0,
             p_stock=models.VendorCStockStatus.out_of_stock
-        )
+        ),
+        details_updated_at=0
     )
     # file path for external access
     mock_file_path: str = "./simulated_responses/vendorC_resp.json"
@@ -211,6 +234,9 @@ class SimulatorC:
             else: 
                 self.respC.details.p_stock = models.VendorCStockStatus.out_of_stock
                 self.respC.details.p_inventory = random.randint(0, Constants.MAX_STOCK) # can be 0
+
+        # set timestamp
+        self.respC.details_updated_at = HelperFuncs.set_timestamp_in_millis()
 
         '''
         [TODO] If time allows: 

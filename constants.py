@@ -13,3 +13,6 @@ class Constants:
 
     # move to .env ??
     VENDOR_API_TIMEOUT = 2.0 # in seconds
+
+    # data freshness limit, beyond which it is to be discarded
+    FRESHNESS_LIMIT = 600 # in seconds

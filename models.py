@@ -21,6 +21,7 @@ class VendorAResponse(BaseModel):
     price: float
     inventory: int | None 
     product_in_stock: bool
+    last_updated: int # freshness timestamp in milliseconds
 
 # VendorB response structure and related substructure definitions
 # metadata
@@ -45,6 +46,7 @@ class VendorBResponse(BaseModel):
     product_metadata: VendorBMetadata
     cost: float
     inventory: VendorBInventory
+    last_refresh_time: int # freshness timestamp in milliseconds
 
 # VendorC response structure and related substructure definitions
 # which case for vendorC
@@ -70,3 +72,4 @@ class VendorCDetails(BaseModel):
 class VendorCResponse(BaseModel):
     sku_id: str
     details: VendorCDetails
+    details_updated_at: int # freshness timestamp in milliseconds

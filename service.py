@@ -1,6 +1,7 @@
 import models
 from constants import Constants
 from typing import NamedTuple
+from time import time_ns
 
 class InvalidResponseStructure(Exception):
     pass
@@ -15,6 +16,12 @@ class NormalizedParams(NamedTuple):
 
 # the business logic resides here
 class GetBestVendor:
+    @staticmethod
+    def is_timestamp_fresh(timestamp: int) -> bool:
+        if (time_ns() - timestamp * 1_000_000) > Constants.FRESHNESS_LIMIT * 1_000_000_000:
+            return False
+        return True
+    
     @staticmethod
     def get_best_vendor_from_normalized_tuple_list(normalized_tuple_list: list[NormalizedParams]) -> str:
         # drop all tuples with stock = 0
@@ -57,6 +64,10 @@ class GetBestVendor:
         except Exception as e:
             raise InvalidResponseStructure("Error validating the response body for vendorA: {}".format(e))
 
+        # timestamp validation comes first to avoid any further delays
+        if not GetBestVendor.is_timestamp_fresh(respA.last_updated): # stale date => discard
+            return NormalizedParams(stock=0, price=priceA, vendor_name=vname)
+        
         # stock normalisation
         if (respA.inventory == 0 and respA.product_in_stock): stockA = 5
         # else stockA = 0 and that's already the default
@@ -91,6 +102,10 @@ class GetBestVendor:
         except Exception as e:
             raise InvalidResponseStructure("Error validating the response body for vendorB: {}".format(e))
 
+        # timestamp validation comes first to avoid any further delays
+        if not GetBestVendor.is_timestamp_fresh(respB.last_refresh_time): # stale date => discard
+            return NormalizedParams(stock=0, price=priceB, vendor_name=vname)
+        
         # stock normalisation
         if (respB.inventory.product_inventory == 0 and respB.inventory.stock_status == models.VendorBStockStatus.in_stock): stockB = 5
         # else stockB = 0 and that's already the default
@@ -125,6 +140,10 @@ class GetBestVendor:
         except Exception as e:
             raise InvalidResponseStructure("Error validating the response body for vendorC: {}".format(e))
 
+        # timestamp validation comes first to avoid any further delays
+        if not GetBestVendor.is_timestamp_fresh(respC.details_updated_at): # stale date => discard
+            return NormalizedParams(stock=0, price=priceC, vendor_name=vname)
+        
         # stock normalisation
         if (respC.details.p_inventory == 0 and respC.details.p_stock == models.VendorCStockStatus.in_stock): stockC = 5
         # else stockC = 0 and that's already the default
