@@ -6,6 +6,7 @@ from asyncio import gather
 from models import ResponseStatus, GenericVendorResponse
 from constants import Constants
 from service import GetBestVendor
+from cache import RedisCache
 
 app = FastAPI()
 
@@ -62,6 +63,18 @@ async def get_sku(sku: Annotated[str, Path(min_length=3, max_length=20, pattern=
     # this block is now more generic after introducing "Any" type for the "response_body" field
     # so no extra code changes required (unlike before) if the order of vendors is altered or new
     # vendors added
+
+    # initialise redis-client
+    redis_client = RedisCache()
+    cache_key = f"sku:{sku}"
+
+    # Check Redis cache
+    best_vendor = await redis_client.get(cache_key)
+    if best_vendor:
+        # print("Accessed cache")
+        return best_vendor
+
+    # Else fetch via API call
     results = await gather(
         call_vendorA(), 
         call_vendorB(),
@@ -69,4 +82,9 @@ async def get_sku(sku: Annotated[str, Path(min_length=3, max_length=20, pattern=
     )
 
     # the business logic to apply over the results[] tuple
-    return GetBestVendor.get_best_vendor(results)
+    best_vendor = GetBestVendor.get_best_vendor(results)
+
+    # Store in Redis cache with default ttl
+    await redis_client.set(cache_key, best_vendor)
+
+    return best_vendor
