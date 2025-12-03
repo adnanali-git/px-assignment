@@ -2,6 +2,7 @@ import models
 from constants import Constants
 from typing import NamedTuple
 from time import time_ns
+from switch import SwitchValues
 
 class InvalidResponseStructure(Exception):
     pass
@@ -30,10 +31,35 @@ class GetBestVendor:
         # check if the list is empty, then return OOS message
         if not iter1: return Constants.BEST_VENDOR_SELECTION_OOS_MESSAGE
 
+        # check if only one vendor in the list, then simply return that vendor's name
+        if len(iter1) == 1: return iter1[0].vendor_name
+
+        # len(iter1) is guaranteed to be atleast 2 beyond this point
         # else proceed to further filtering
-        # sort asc by price, if tie then sort desc by stock hence minus sign
-        best_vendor = sorted(iter1, key=lambda tup: (tup.price, -tup.stock))[0].vendor_name
-        return best_vendor
+        if not SwitchValues.IS_PRICE_STOCK_RULE_UPGRADE_ENABLED: # if rule_upgrade not enabled, use the default rule
+            # sort asc by price, if tie then sort desc by stock hence minus sign
+            best_vendor = sorted(iter1, key=lambda tup: (tup.price, -tup.stock))[0].vendor_name
+            return best_vendor
+        else:
+            # step-1: sort same as above
+            iter1.sort(key=lambda tup: (tup.price, -tup.stock))
+            best_vendor = iter1[0] # best vendor so far
+
+            # step-2: compare two vendors for the price-diff one-by-one
+            curr_vendor = iter1[1] # declared outside loop to avoid scoping issues
+            for idx in range(1, len(iter1)): # generic code to future-proof for further vendor additions
+                curr_vendor = iter1[idx] # the vendor to be compared with
+                # compare price diff
+                pA = best_vendor.price
+                pB = curr_vendor.price # pB is by definition more than pA due to the way we sorted the list
+                if pA * 1.1 < pB: # diff is more than 10%
+                    if curr_vendor.stock > best_vendor.stock: # set curr_vendor as best_vendor
+                        best_vendor = curr_vendor
+                    # else: no change in best_vendor
+                # else: no change in best_vendor
+            
+            # return best after all the comparisons
+            return best_vendor.vendor_name
 
     @staticmethod
     def validate_price(price: float) -> bool:

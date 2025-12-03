@@ -5,6 +5,7 @@ class SwitchValues:
     # the simulation/mocking requirement in this task. It doesn't arise in a
     # real-life production codebase.
     IS_MOCKING_VIA_FILE: bool = True 
+    IS_PRICE_STOCK_RULE_UPGRADE_ENABLED: bool = True
 
 # ideally put in a switch microservice outside this codebase
 # so that it can be swiftly altered in emergency scenarios saving
