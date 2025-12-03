@@ -11,12 +11,12 @@ from contextlib import asynccontextmanager
 from redis.asyncio import Redis
 from time import time
 
-from models import ResponseStatus, GenericVendorResponse, CaseForVendorC
-from constants import Constants
-from service import GetBestVendor
-from cache import RedisCache
-from simulators import SimulatorA, SimulatorB, SimulatorC
-import switch
+from app.schemas.vendor.models import ResponseStatus, GenericVendorResponse, CaseForVendorC
+from app.core.constants import Constants
+from app.services.service import GetBestVendor
+from app.cache.cache import RedisCache
+from simulation.simulators import SimulatorA, SimulatorB, SimulatorC
+import app.switch.switch as switch
 
 # can also use the FastAPI app.state.redis instead of the global var
 # but not sure if there are any issues in using that

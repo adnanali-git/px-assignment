@@ -1,6 +1,6 @@
 # project-file imports
-import models
-import constants
+import app.schemas.vendor.models as models
+import app.core.constants as constants
 
 # library imports
 import random

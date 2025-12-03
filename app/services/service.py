@@ -1,8 +1,8 @@
-import models
-from constants import Constants
+import app.schemas.vendor.models as models
+from app.core.constants import Constants
 from typing import NamedTuple
 from time import time_ns
-from switch import SwitchValues
+from app.switch.switch import SwitchValues
 
 class InvalidResponseStructure(Exception):
     pass

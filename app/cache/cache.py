@@ -1,5 +1,5 @@
 from redis.asyncio import Redis
-from config import settings
+from app.config.config import settings
 
 class RedisCache:
     def __init__(self):
