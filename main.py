@@ -25,13 +25,15 @@ redis_client: Redis
 async def lifespan(app: FastAPI):
     # reference to the global variable
     global redis_client
+
     # setup steps (equivalent to @app.on_startup())
     redis_client = RedisCache().redis
-    await FastAPILimiter.init(redis_client)
     # client_resp = await redis_client.ping()
     # print(f"Did the client start? {client_resp}")
+
     try: # the runtime of the app
         yield
+    
     finally: # teardown (equivalent to @app.on_shutdown())
         await redis_client.aclose()
 
