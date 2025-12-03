@@ -7,6 +7,8 @@ from random import uniform
 from tenacity import retry, stop_after_attempt, wait_fixed
 from aiobreaker import CircuitBreaker
 from datetime import timedelta
+from contextlib import asynccontextmanager
+from redis.asyncio import Redis
 
 from models import ResponseStatus, GenericVendorResponse, CaseForVendorC
 from constants import Constants
@@ -15,7 +17,25 @@ from cache import RedisCache
 from simulators import SimulatorA, SimulatorB, SimulatorC
 import switch
 
-app = FastAPI()
+# global redis_client
+redis_client: Redis
+
+# lifespan manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # reference to the global variable
+    global redis_client
+    # setup steps (equivalent to @app.on_startup())
+    redis_client = RedisCache().redis
+    await FastAPILimiter.init(redis_client)
+    # client_resp = await redis_client.ping()
+    # print(f"Did the client start? {client_resp}")
+    try: # the runtime of the app
+        yield
+    finally: # teardown (equivalent to @app.on_shutdown())
+        await redis_client.aclose()
+
+app = FastAPI(lifespan=lifespan)
 
 # retry logic
 retry_policy = retry(
@@ -41,8 +61,11 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
                 response_body=respA
             )
     else: # mock via actual API calls
+        req_headers = None # no request-headers by default
+        if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
+            req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORA}
         try:
-            async with AsyncClient(timeout=Constants.VENDOR_API_TIMEOUT) as clientA:
+            async with AsyncClient(headers=req_headers, timeout=Constants.VENDOR_API_TIMEOUT) as clientA:
                 respA = await clientA.get(Constants.VENDORA_ENDPOINT)
                 respA.raise_for_status() # gets caught in the next block if HTTP Error
 
@@ -77,8 +100,11 @@ async def call_vendorB(sku: str) -> GenericVendorResponse:
                 response_body=respB
             )
     else: # mock via actual API calls
+        req_headers = None # no request-headers by default
+        if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
+            req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORB}
         try:
-            async with AsyncClient(timeout=Constants.VENDOR_API_TIMEOUT) as clientB:
+            async with AsyncClient(headers=req_headers, timeout=Constants.VENDOR_API_TIMEOUT) as clientB:
                 respB = await clientB.get(Constants.VENDORB_ENDPOINT)
                 respB.raise_for_status() # gets caught in the next block if HTTP Error
 
@@ -137,8 +163,11 @@ async def call_vendorC(sku: str) -> GenericVendorResponse:
             )
     else: # mock via actual API calls
         # print("VendorC must fail!")
+        req_headers = None # no request-headers by default
+        if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
+            req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORC}
         try:
-            async with AsyncClient(timeout=Constants.VENDOR_API_TIMEOUT) as clientC:
+            async with AsyncClient(headers=req_headers, timeout=Constants.VENDOR_API_TIMEOUT) as clientC:
                 respC = await clientC.get(Constants.VENDORC_ENDPOINT)
                 respC.raise_for_status() # gets caught in the next block if HTTP Error
 
@@ -162,7 +191,7 @@ async def get_sku(sku: Annotated[str, Path(min_length=3, max_length=20, pattern=
     # vendors added
 
     # initialise redis-client
-    redis_client = RedisCache()
+    global redis_client
     cache_key = f"sku:{sku}"
 
     # Check Redis cache
