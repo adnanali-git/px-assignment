@@ -16,6 +16,11 @@ class CircuitBreakerParams:
     VENDORC_CB_MAX_FAIL = 3 # after these many failures, open the circuit
     VENDORC_CB_OPEN_DURATION = 30 # in seconds
 
+# all ratelimit related flags here
+class RateLimitParams:
+    GLOBAL_WINDOW_IN_MILLIS = 60_000 # in millis
+    GLOBAL_REQUEST_LIMIT = 60 # per window
+
 # as the name suggests, can be moved to a private vault in production env
 # this is mere simulation
 class PrivateVault:

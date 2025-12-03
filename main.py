@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Path
+from fastapi import FastAPI, Path, HTTPException
 from typing import Annotated
 from httpx import AsyncClient
 from asyncio import gather, sleep
@@ -9,6 +9,7 @@ from aiobreaker import CircuitBreaker
 from datetime import timedelta
 from contextlib import asynccontextmanager
 from redis.asyncio import Redis
+from time import time
 
 from models import ResponseStatus, GenericVendorResponse, CaseForVendorC
 from constants import Constants
@@ -17,6 +18,8 @@ from cache import RedisCache
 from simulators import SimulatorA, SimulatorB, SimulatorC
 import switch
 
+# can also use the FastAPI app.state.redis instead of the global var
+# but not sure if there are any issues in using that
 # global redis_client
 redis_client: Redis
 
@@ -38,6 +41,31 @@ async def lifespan(app: FastAPI):
         await redis_client.aclose()
 
 app = FastAPI(lifespan=lifespan)
+
+async def exceeds_rate_limit(vendor_name: str) -> bool:
+    # local variables to avoid long names to make code more readable
+    WINDOW = switch.RateLimitParams.GLOBAL_WINDOW_IN_MILLIS
+    REQUEST_LIMIT = switch.RateLimitParams.GLOBAL_REQUEST_LIMIT
+
+    now = time() # current timestamp in millis
+    window_start = now - WINDOW # requests older than window_start i.e. less than it need to be removed
+    redis_key = f"rate_limit_store:{vendor_name}" # the redis_key [TODO] make "rate_limit_store:" a value picked from .env file or Constants
+
+    global redis_client
+
+    # step 1: Count active elements
+    count = await redis_client.zcount(redis_key, window_start, now)
+
+    # step 2: check rate-limit
+    if count >= REQUEST_LIMIT: # ideally == should suffice
+        return True
+    else: # step 3: Add current timestamp
+        await redis_client.zadd(redis_key, {str(now): now})
+
+    # step 4: Remove timestamps outside sliding window
+    await redis_client.zremrangebyscore(redis_key, 0, window_start)
+
+    return False
 
 # retry logic
 retry_policy = retry(
@@ -64,9 +92,16 @@ async def call_vendorA(sku: str) -> GenericVendorResponse:
             )
     else: # mock via actual API calls
         req_headers = None # no request-headers by default
+        exceeds_RL = False # doesn't exceed rate limit by default
         if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
             req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORA}
+            exceeds_RL = exceeds_rate_limit(Constants.VENDORA_NAME) # test RL for vendor
         try:
+            if exceeds_RL: 
+                raise HTTPException(
+                    429, f"Rate limit exceeded: {switch.RateLimitParams.GLOBAL_REQUEST_LIMIT} requests/min"
+                )
+
             async with AsyncClient(headers=req_headers, timeout=Constants.VENDOR_API_TIMEOUT) as clientA:
                 respA = await clientA.get(Constants.VENDORA_ENDPOINT)
                 respA.raise_for_status() # gets caught in the next block if HTTP Error
@@ -103,9 +138,16 @@ async def call_vendorB(sku: str) -> GenericVendorResponse:
             )
     else: # mock via actual API calls
         req_headers = None # no request-headers by default
+        exceeds_RL = False # doesn't exceed rate limit by default
         if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
             req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORB}
+            exceeds_RL = exceeds_rate_limit(Constants.VENDORB_NAME) # test RL for vendor
         try:
+            if exceeds_RL: 
+                raise HTTPException(
+                    429, f"Rate limit exceeded: {switch.RateLimitParams.GLOBAL_REQUEST_LIMIT} requests/min"
+                )
+
             async with AsyncClient(headers=req_headers, timeout=Constants.VENDOR_API_TIMEOUT) as clientB:
                 respB = await clientB.get(Constants.VENDORB_ENDPOINT)
                 respB.raise_for_status() # gets caught in the next block if HTTP Error
@@ -166,9 +208,16 @@ async def call_vendorC(sku: str) -> GenericVendorResponse:
     else: # mock via actual API calls
         # print("VendorC must fail!")
         req_headers = None # no request-headers by default
+        exceeds_RL = False # doesn't exceed rate limit by default
         if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
             req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORC}
+            exceeds_RL = exceeds_rate_limit(Constants.VENDORC_NAME) # test RL for vendor
         try:
+            if exceeds_RL: 
+                raise HTTPException(
+                    429, f"Rate limit exceeded: {switch.RateLimitParams.GLOBAL_REQUEST_LIMIT} requests/min"
+                )
+
             async with AsyncClient(headers=req_headers, timeout=Constants.VENDOR_API_TIMEOUT) as clientC:
                 respC = await clientC.get(Constants.VENDORC_ENDPOINT)
                 respC.raise_for_status() # gets caught in the next block if HTTP Error
