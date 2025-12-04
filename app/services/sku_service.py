@@ -1,5 +1,4 @@
 from asyncio import gather as asyncio_gather
-from fastapi import Depends
 from redis.asyncio import Redis
 from typing import NamedTuple
 from time import time_ns
