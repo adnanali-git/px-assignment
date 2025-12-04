@@ -1,0 +1,75 @@
+from pydantic import BaseModel
+from enum import Enum
+from typing import NamedTuple, Any
+
+# whether the api response was success or error
+class ResponseStatus(str, Enum):
+    success = "SUCCESS"
+    error = "ERROR"
+
+# tuple from vendor-response for further processing
+class GenericVendorResponse(NamedTuple):
+    vendor_name: str
+    response_status: ResponseStatus
+    response_body: Any # refer to main branch for further discussion, this is for cleaner, more practical and readable code
+
+# VendorA response structure
+class VendorAResponse(BaseModel):
+    product_id: str
+    product_name: str
+    product_description: str | None = None
+    price: float
+    inventory: int | None 
+    product_in_stock: bool
+    last_updated: int # freshness timestamp in milliseconds
+
+# VendorB response structure and related substructure definitions
+# metadata
+class VendorBMetadata(BaseModel):
+    title: str
+    description: str
+    image_details: str
+
+# stock status
+class VendorBStockStatus(str, Enum):
+    in_stock = "IN_STOCK"
+    out_of_stock = "OUT_OF_STOCK"
+
+# inventory and stock details
+class VendorBInventory(BaseModel):
+    product_inventory: int
+    stock_status: VendorBStockStatus
+
+# main response structure
+class VendorBResponse(BaseModel):
+    id: str
+    product_metadata: VendorBMetadata
+    cost: float
+    inventory: VendorBInventory
+    last_refresh_time: int # freshness timestamp in milliseconds
+
+# VendorC response structure and related substructure definitions
+# which case for vendorC
+class CaseForVendorC(str, Enum):
+    slow = "SLOW"
+    fail = "FAIL"
+    okay = "SUCCESS"
+
+# stock status
+class VendorCStockStatus(str, Enum):
+    in_stock = "YES"
+    out_of_stock = "OOS"
+
+# other details
+class VendorCDetails(BaseModel):
+    name: str
+    desc: str
+    product_price: float
+    p_inventory: int
+    p_stock: VendorCStockStatus
+
+# main response structure
+class VendorCResponse(BaseModel):
+    sku_id: str
+    details: VendorCDetails
+    details_updated_at: int # freshness timestamp in milliseconds

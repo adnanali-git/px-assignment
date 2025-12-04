@@ -210,3 +210,7 @@ __marimo__/
 # self
 skip-me/
 .DS_Store
+/simulated_responses
+
+# redis
+dump.rdb
