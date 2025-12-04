@@ -1,8 +1,13 @@
-import app.schemas.vendor.models as models
-from app.core.constants import Constants
+from asyncio import gather as asyncio_gather
+from fastapi import Depends
+from redis.asyncio import Redis
 from typing import NamedTuple
 from time import time_ns
+
+import app.schemas.vendor.models as models
+from app.core.constants import Constants
 from app.switch.switch import SwitchValues
+from app.services.cache_service import get_best_vendor_for_sku_from_redis, set_best_vendor_for_sku_in_redis
 
 class InvalidResponseStructure(Exception):
     pass
@@ -15,8 +20,9 @@ class NormalizedParams(NamedTuple):
     price: float
     vendor_name: str
 
-# the business logic resides here
-class GetBestVendor:
+from app.external_clients.vendors import VendorClient
+
+class SKUServiceHelper:
     @staticmethod
     def is_timestamp_fresh(timestamp: int) -> bool:
         if (time_ns() - timestamp * 1_000_000) > Constants.FRESHNESS_LIMIT * 1_000_000_000:
@@ -64,8 +70,8 @@ class GetBestVendor:
     @staticmethod
     def validate_price(price: float) -> bool:
         try:
-            float(price)
-            return (price > 0)
+            float(price) # price must be numeric
+            return (price > 0) # price must be > 0
         except ValueError:
             return False
 
@@ -79,7 +85,7 @@ class GetBestVendor:
         stockA: int = 0
         priceA: float = 0
 
-        # no retries implemented yet so stock treated as 0
+        # Error is treated as stock=0, can modify it to do smth else if needed
         if resp.response_status == models.ResponseStatus.error: 
             return NormalizedParams(stock=stockA, price=priceA, vendor_name=vname)
         
@@ -91,7 +97,7 @@ class GetBestVendor:
             raise InvalidResponseStructure("Error validating the response body for vendorA: {}".format(e))
 
         # timestamp validation comes first to avoid any further delays
-        if not GetBestVendor.is_timestamp_fresh(respA.last_updated): # stale date => discard
+        if not SKUServiceHelper.is_timestamp_fresh(respA.last_updated): # stale date => discard
             return NormalizedParams(stock=0, price=priceA, vendor_name=vname)
         
         # stock normalisation
@@ -99,7 +105,7 @@ class GetBestVendor:
         # else stockA = 0 and that's already the default
 
         # price validation
-        if GetBestVendor.validate_price(respA.price): # valid price, set it
+        if SKUServiceHelper.validate_price(respA.price): # valid price, set it
             priceA = respA.price
         else: # discard it i.e. treat it as stock=0
             return NormalizedParams(stock=0, price=priceA, vendor_name=vname)
@@ -129,7 +135,7 @@ class GetBestVendor:
             raise InvalidResponseStructure("Error validating the response body for vendorB: {}".format(e))
 
         # timestamp validation comes first to avoid any further delays
-        if not GetBestVendor.is_timestamp_fresh(respB.last_refresh_time): # stale date => discard
+        if not SKUServiceHelper.is_timestamp_fresh(respB.last_refresh_time): # stale date => discard
             return NormalizedParams(stock=0, price=priceB, vendor_name=vname)
         
         # stock normalisation
@@ -137,7 +143,7 @@ class GetBestVendor:
         # else stockB = 0 and that's already the default
 
         # price validation
-        if GetBestVendor.validate_price(respB.cost): # valid price, set it
+        if SKUServiceHelper.validate_price(respB.cost): # valid price, set it
             priceB = respB.cost
         else: # discard it i.e. treat it as stock=0
             return NormalizedParams(stock=0, price=priceB, vendor_name=vname)
@@ -167,7 +173,7 @@ class GetBestVendor:
             raise InvalidResponseStructure("Error validating the response body for vendorC: {}".format(e))
 
         # timestamp validation comes first to avoid any further delays
-        if not GetBestVendor.is_timestamp_fresh(respC.details_updated_at): # stale date => discard
+        if not SKUServiceHelper.is_timestamp_fresh(respC.details_updated_at): # stale date => discard
             return NormalizedParams(stock=0, price=priceC, vendor_name=vname)
         
         # stock normalisation
@@ -175,7 +181,7 @@ class GetBestVendor:
         # else stockC = 0 and that's already the default
 
         # price validation
-        if GetBestVendor.validate_price(respC.details.product_price): # valid price, set it
+        if SKUServiceHelper.validate_price(respC.details.product_price): # valid price, set it
             priceC = respC.details.product_price
         else: # discard it i.e. treat it as stock=0
             return NormalizedParams(stock=0, price=priceC, vendor_name=vname)
@@ -187,11 +193,11 @@ class GetBestVendor:
     def get_normalized_parameters(result: models.GenericVendorResponse) -> NormalizedParams: # return namedtuple of (stock, price, vendor_name)
         match result.vendor_name: # if you add more vendors, then add the respective case here (one-time effort)
             case Constants.VENDORA_NAME:
-                return GetBestVendor.normalize_response_for_vendorA(result)
+                return SKUServiceHelper.normalize_response_for_vendorA(result)
             case Constants.VENDORB_NAME:
-                return GetBestVendor.normalize_response_for_vendorB(result)
+                return SKUServiceHelper.normalize_response_for_vendorB(result)
             case Constants.VENDORC_NAME:
-                return GetBestVendor.normalize_response_for_vendorC(result)
+                return SKUServiceHelper.normalize_response_for_vendorC(result)
             case _:
                 raise InvalidVendorException("Vendor name doesn't exist!")
 
@@ -201,7 +207,41 @@ class GetBestVendor:
 
         # iterate
         for result in result_tuple:
-            normalized_stock_price_list.append(GetBestVendor.get_normalized_parameters(result))
+            normalized_stock_price_list.append(SKUServiceHelper.get_normalized_parameters(result))
         
         # get best vendor from the stock_price list
-        return GetBestVendor.get_best_vendor_from_normalized_tuple_list(normalized_stock_price_list)
+        return SKUServiceHelper.get_best_vendor_from_normalized_tuple_list(normalized_stock_price_list)
+
+# the business logic resides here
+class SKUService:
+    def __init__(self):
+        self.vendor_client = VendorClient()
+
+    async def get_best_vendor_for_sku(self, sku: str, redis_client: Redis) -> str:
+
+        # Step 1: Find best vendor in cache_service and return
+        # Check Redis cache
+        best_vendor = await get_best_vendor_for_sku_from_redis(redis_client, sku)
+        if best_vendor:
+            # print("Accessed cache")
+            return best_vendor
+
+        # this block is now more generic after introducing "Any" type for the "response_body" field
+        # so no extra code changes required (unlike before) if the order of vendors is altered or new
+        # vendors added
+
+        # Step 2: If not found fetch via API call
+        results = await asyncio_gather(
+            self.vendor_client.call_vendorA(sku), 
+            self.vendor_client.call_vendorB(sku),
+            self.vendor_client.call_vendorC(sku),
+            # return_exceptions=True, # to run all tasks to completion, even if some raise exceptions 
+        )
+
+        # the business logic to apply over the results[] tuple
+        best_vendor = SKUServiceHelper.get_best_vendor(results)
+
+        # Store in Redis cache with default ttl
+        await set_best_vendor_for_sku_in_redis(redis_client, sku, best_vendor)
+
+        return best_vendor
