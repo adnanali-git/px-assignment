@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Path
 from redis.asyncio import Redis
 
 from app.services.sku_service import SKUService
-from app.core.dependencies import get_redis
+from app.core.dependencies import get_redis # should be the only place in your project with this import
 
 router = APIRouter()
 sku_service = SKUService()

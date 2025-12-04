@@ -1,9 +1,8 @@
 
 from time import time
 from fastapi import Depends
-from redis import Redis
+from redis.asyncio import Redis
 
-from app.core.dependencies import get_redis
 from app.switch import switch
 
 '''
@@ -12,7 +11,7 @@ Q. Where does the request argument come from in FastAPI?
 - You do not create it manually. FastAPI gives you the object for the current HTTP request.
 '''
 
-async def exceeds_rate_limit(vendor_name: str, redis_client: Redis = Depends(get_redis)) -> bool:
+async def exceeds_rate_limit(vendor_name: str, redis_client: Redis) -> bool:
     # local variables to avoid long names to make code more readable
     WINDOW = switch.RateLimitParams.GLOBAL_WINDOW_IN_MILLIS
     REQUEST_LIMIT = switch.RateLimitParams.GLOBAL_REQUEST_LIMIT

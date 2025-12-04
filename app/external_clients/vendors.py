@@ -1,14 +1,17 @@
 from asyncio import sleep
 from random import uniform
+import time
 from fastapi import HTTPException
 from httpx import AsyncClient
 from jsonpickle import decode
+from redis.asyncio import Redis
 from tenacity import retry, stop_after_attempt, wait_fixed
 from aiobreaker import CircuitBreaker
 from datetime import timedelta
 
 from app.core.constants import Constants
 from app.core.rate_limiter import exceeds_rate_limit
+from app.instrumentation.metrics import VENDOR_FAILURES, VENDOR_LATENCY
 from app.schemas.vendor.models import CaseForVendorC, GenericVendorResponse, ResponseStatus
 from app.switch import switch
 from simulation.simulators import SimulatorA, SimulatorB, SimulatorC
@@ -30,7 +33,10 @@ class VendorClient:
     # async call to vendorA
     @staticmethod
     @retry_policy
-    async def call_vendorA(sku: str) -> GenericVendorResponse:
+    async def call_vendorA(sku: str, redis_client: Redis) -> GenericVendorResponse:
+        # define in one place, reuse everywhere
+        vendor_name_local = Constants.VENDORA_NAME
+
         # mock via json-files
         if switch.SwitchValues.IS_MOCKING_VIA_FILE:
             # get mock_file path
@@ -41,7 +47,7 @@ class VendorClient:
             mock_file.close()
             # return response
             return GenericVendorResponse(
-                    vendor_name=Constants.VENDORA_NAME, 
+                    vendor_name=vendor_name_local, 
                     response_status=ResponseStatus.success,
                     response_body=respA
                 )
@@ -50,7 +56,10 @@ class VendorClient:
             exceeds_RL = False # doesn't exceed rate limit by default
             if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
                 req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORA}
-                exceeds_RL = await exceeds_rate_limit(Constants.VENDORA_NAME) # test RL for vendor
+                exceeds_RL = await exceeds_rate_limit(vendor_name_local, redis_client) # test RL for vendor
+            
+            # start timer to log vendor latency
+            latency_watcher_start = time.perf_counter()
             try:
                 if exceeds_RL: 
                     raise HTTPException(
@@ -63,21 +72,31 @@ class VendorClient:
 
                     # success
                     return GenericVendorResponse(
-                        vendor_name=Constants.VENDORA_NAME, 
+                        vendor_name=vendor_name_local, 
                         response_status=ResponseStatus.success,
                         response_body=respA.json()
                     )
             except BaseException as errA:
+                # log vendor failure
+                VENDOR_FAILURES.labels(vendor=vendor_name_local).inc()
+
+                # return response
                 return GenericVendorResponse(
-                        vendor_name=Constants.VENDORA_NAME, 
+                        vendor_name=vendor_name_local, 
                         response_status=ResponseStatus.error, # error
                         response_body=errA # for further processing if needed
                     )
+            finally: # log vendor latency
+                time_elapsed = time.perf_counter() - latency_watcher_start
+                VENDOR_LATENCY.labels(vendor=vendor_name_local).observe(time_elapsed)
     
     # async call to vendorB
     @staticmethod
     @retry_policy
-    async def call_vendorB(sku: str) -> GenericVendorResponse:
+    async def call_vendorB(sku: str, redis_client: Redis) -> GenericVendorResponse:
+        # define in one place, reuse everywhere
+        vendor_name_local = Constants.VENDORB_NAME
+
         # mock via json-files
         if switch.SwitchValues.IS_MOCKING_VIA_FILE:
             # get mock_file path
@@ -88,7 +107,7 @@ class VendorClient:
             mock_file.close()
             # return response
             return GenericVendorResponse(
-                    vendor_name=Constants.VENDORB_NAME, 
+                    vendor_name=vendor_name_local, 
                     response_status=ResponseStatus.success,
                     response_body=respB
                 )
@@ -97,7 +116,10 @@ class VendorClient:
             exceeds_RL = False # doesn't exceed rate limit by default
             if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
                 req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORB}
-                exceeds_RL = await exceeds_rate_limit(Constants.VENDORB_NAME) # test RL for vendor
+                exceeds_RL = await exceeds_rate_limit(vendor_name_local, redis_client) # test RL for vendor
+            
+            # start timer to log vendor latency
+            latency_watcher_start = time.perf_counter()
             try:
                 if exceeds_RL: 
                     raise HTTPException(
@@ -110,16 +132,23 @@ class VendorClient:
 
                     # success
                     return GenericVendorResponse(
-                        vendor_name=Constants.VENDORB_NAME, 
+                        vendor_name=vendor_name_local, 
                         response_status=ResponseStatus.success,
                         response_body=respB.json()
                     )
             except BaseException as errB: 
+                # log vendor failure
+                VENDOR_FAILURES.labels(vendor=vendor_name_local).inc()
+
+                # return response
                 return GenericVendorResponse(
-                        vendor_name=Constants.VENDORB_NAME, 
+                        vendor_name=vendor_name_local, 
                         response_status=ResponseStatus.error, # error
                         response_body=errB # for further processing if needed
                     )
+            finally: # log vendor latency
+                time_elapsed = time.perf_counter() - latency_watcher_start
+                VENDOR_LATENCY.labels(vendor=vendor_name_local).observe(time_elapsed)
 
     '''
     Even though currently the logic for both the above functions is similar,
@@ -132,7 +161,10 @@ class VendorClient:
     # async call to vendorC
     @staticmethod
     @retry_policy
-    async def call_vendorC(sku: str) -> GenericVendorResponse:
+    async def call_vendorC(sku: str, redis_client: Redis) -> GenericVendorResponse:
+        # define in one place, reuse everywhere
+        vendor_name_local = Constants.VENDORC_NAME
+
         # call simulator for vendorC
         sim_vendorC = SimulatorC(sku)
 
@@ -160,7 +192,10 @@ class VendorClient:
             exceeds_RL = False # doesn't exceed rate limit by default
             if switch.SwitchValues.RATE_LIMIT_FOR_VENDORS_ENABLED:
                 req_headers = {"x-api-key": switch.PrivateVault.API_KEY_FOR_VENDORC}
-                exceeds_RL = await exceeds_rate_limit(Constants.VENDORC_NAME) # test RL for vendor
+                exceeds_RL = await exceeds_rate_limit(Constants.VENDORC_NAME, redis_client) # test RL for vendor
+            
+            # start timer to log vendor latency
+            latency_watcher_start = time.perf_counter()
             try:
                 if exceeds_RL: 
                     raise HTTPException(
@@ -173,13 +208,20 @@ class VendorClient:
 
                     # success
                     return GenericVendorResponse(
-                        vendor_name=Constants.VENDORC_NAME, 
+                        vendor_name=vendor_name_local, 
                         response_status=ResponseStatus.success,
                         response_body=respC.json()
                     )
             except BaseException as errC: 
+                # log vendor failure
+                VENDOR_FAILURES.labels(vendor=vendor_name_local).inc()
+
+                # return response
                 return GenericVendorResponse(
-                        vendor_name=Constants.VENDORC_NAME, 
+                        vendor_name=vendor_name_local, 
                         response_status=ResponseStatus.error, # error
                         response_body=errC # for further processing if needed
                     )
+            finally: # log vendor latency
+                time_elapsed = time.perf_counter() - latency_watcher_start
+                VENDOR_LATENCY.labels(vendor=vendor_name_local).observe(time_elapsed)

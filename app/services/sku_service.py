@@ -231,9 +231,9 @@ class SKUService:
 
         # Step 2: If not found fetch via API call
         results = await asyncio_gather(
-            self.vendor_client.call_vendorA(sku), 
-            self.vendor_client.call_vendorB(sku),
-            self.vendor_client.call_vendorC(sku),
+            self.vendor_client.call_vendorA(sku, redis_client), 
+            self.vendor_client.call_vendorB(sku, redis_client),
+            self.vendor_client.call_vendorC(sku, redis_client),
             # return_exceptions=True, # to run all tasks to completion, even if some raise exceptions 
         )
 
