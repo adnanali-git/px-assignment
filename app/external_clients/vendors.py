@@ -10,7 +10,7 @@ from aiobreaker import CircuitBreaker
 from datetime import timedelta
 
 from app.core.constants import Constants
-from app.core.rate_limiter import exceeds_rate_limit
+from app.resilience.rate_limiter import exceeds_rate_limit
 from app.instrumentation.metrics import VENDOR_FAILURES, VENDOR_LATENCY
 from app.schemas.vendor.models import CaseForVendorC, GenericVendorResponse, ResponseStatus
 from app.switch import switch

@@ -1,0 +1,49 @@
+px-assignment
+├── Dockerfile
+├── README.md
+├── app
+│   ├── __init__.py
+│   ├── config
+│   │   ├── __init__.py
+│   │   └── config.py
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── constants.py
+│   │   ├── dependencies.py
+│   │   └── lifespan_events.py
+│   ├── external_clients
+│   │   ├── __init__.py
+│   │   └── vendors.py
+│   ├── instrumentation
+│   │   ├── __init__.py
+│   │   ├── metrics.py
+│   │   └── middleware.py
+│   ├── main.py
+│   ├── resilience
+│   │   ├── __init__.py
+│   │   └── rate_limiter.py
+│   ├── routers
+│   │   ├── __init__.py
+│   │   └── sku.py
+│   ├── schemas
+│   │   └── vendor
+│   │       ├── __init__.py
+│   │       └── models.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── cache_service.py
+│   │   └── sku_service.py
+│   └── switch
+│       ├── __init__.py
+│       └── switch.py
+├── docker
+│   ├── grafana
+│   │   └── dashboards
+│   └── prometheus.yml
+├── docker-compose.yml
+├── project_tree.txt
+├── requirements.txt
+└── simulation
+    └── simulators.py
+
+17 directories, 32 files

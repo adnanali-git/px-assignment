@@ -1,6 +1,5 @@
 
 from time import time
-from fastapi import Depends
 from redis.asyncio import Redis
 
 from app.switch import switch
