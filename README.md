@@ -9,7 +9,7 @@ A minimal and clean fastapi service that fetches product pricing from `THREE` ex
 
 ## ✨ Features
 
-* `**GET /products/{sku}**` — fetch best vendor price
+* **`GET /products/{sku}`** — fetch best vendor price
 * **Three external vendor clients** with isolation & clean separation
 * **Redis cache** for SKUs (reduces vendor calls)
 * **HTTP timeouts + retries** using `httpx`
