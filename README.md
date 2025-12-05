@@ -77,7 +77,7 @@ px-assignment
 
 ## 🔧 How It Works (High‑Level)
 
-### 1️⃣ Request hits **/products/{sku}**
+### 1️⃣ Request hits **`/products/{sku}`**
 
 Router delegates to `sku_service.get_best_vendor_for_sku()`.
 
@@ -93,7 +93,7 @@ Calls all three vendors (async):
 
   * retry policy
   * timeout
-  * redis rate limit
+  * http rate limit
   * circuit breaker (only over the third vendor known for slow responses & errors)
 
 ### 4️⃣ Prometheus metrics
@@ -168,7 +168,9 @@ CACHE_TTL=120
 
 * **Business logic isolated** (`services/`)
 * **Vendor‑specific logic isolated** (`external_clients/`)
+* **API response models isolated** (`schema/`)
 * **Resilience policies reusable** (`resilience/`)
 * **Metrics isolated** (`instrumentation/`)
 * **Transport layer isolated** (`routers/`)
 * **Config isolated** (`config/`)
+* **Startup/shutdown and cross-cutting concerns isolated** (`core/`)
