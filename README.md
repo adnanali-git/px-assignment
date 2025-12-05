@@ -1,5 +1,5 @@
 # px-assignment
-[Python][FastAPI] Asynchronously fetch given {sku} from different vendors via API call, apply business logic over the response and cache the best vendor per {sku}
+[Python][FastAPI] Asynchronously fetch given `{sku}` from different vendors via API call, apply business logic over the response and cache the best vendor per `{sku}`
 
 # 🚀 FastAPI Vendor Aggregator — Clean Architecture, Caching, Resilience & Observability
 
