@@ -4,7 +4,7 @@ from typing import NamedTuple
 from time import time_ns
 
 from app.external_clients import vendorA, vendorB
-from app.factories.normalize_vendor_responses import VendorResponsesFactory
+from app.factories.vendor_responses import VendorResponsesFactory
 import app.schemas.vendor.models as models
 from app.core.constants import Constants
 from app.switch.switch import SwitchValues
