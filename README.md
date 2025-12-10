@@ -1,5 +1,5 @@
 # px-assignment
-[Python][FastAPI] Asynchronously fetch given {sku} from different vendors via API call, apply business logic over the response and cache the best vendor per {sku}
+[Python][FastAPI] Asynchronously fetch given `{sku}` from different vendors via API call, apply business logic over the response and cache the best vendor per `{sku}`
 
 # 🚀 FastAPI Vendor Aggregator — Clean Architecture, Caching, Resilience & Observability
 
@@ -9,7 +9,7 @@ A minimal and clean fastapi service that fetches product pricing from `THREE` ex
 
 ## ✨ Features
 
-* **GET /products/{sku}** — fetch best vendor price
+* **`GET /products/{sku}`** — fetch best vendor price
 * **Three external vendor clients** with isolation & clean separation
 * **Redis cache** for SKUs (reduces vendor calls)
 * **HTTP timeouts + retries** using `httpx`
@@ -77,7 +77,7 @@ px-assignment
 
 ## 🔧 How It Works (High‑Level)
 
-### 1️⃣ Request hits **/products/{sku}**
+### 1️⃣ Request hits **`/products/{sku}`**
 
 Router delegates to `sku_service.get_best_vendor_for_sku()`.
 
@@ -93,7 +93,7 @@ Calls all three vendors (async):
 
   * retry policy
   * timeout
-  * redis rate limit
+  * http rate limit
   * circuit breaker (only over the third vendor known for slow responses & errors)
 
 ### 4️⃣ Prometheus metrics
@@ -168,7 +168,9 @@ CACHE_TTL=120
 
 * **Business logic isolated** (`services/`)
 * **Vendor‑specific logic isolated** (`external_clients/`)
+* **API response models isolated** (`schema/`)
 * **Resilience policies reusable** (`resilience/`)
 * **Metrics isolated** (`instrumentation/`)
 * **Transport layer isolated** (`routers/`)
 * **Config isolated** (`config/`)
+* **Startup/shutdown and cross-cutting concerns isolated** (`core/`)
