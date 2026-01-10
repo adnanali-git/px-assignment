@@ -11,9 +11,12 @@ Q. Where does the request argument come from in FastAPI?
 '''
 
 async def exceeds_rate_limit(vendor_name: str, redis_client: Redis) -> bool:
+    """
+    only gets called for vendors for whom RL is enabled
+    """
     # local variables to avoid long names to make code more readable
-    WINDOW = switch.RateLimitParams.GLOBAL_WINDOW_IN_MILLIS
-    REQUEST_LIMIT = switch.RateLimitParams.GLOBAL_REQUEST_LIMIT
+    WINDOW = switch.RateLimitParams.RL_CONFIG_FOR_VENDORS[vendor_name].window_in_millis
+    REQUEST_LIMIT = switch.RateLimitParams.RL_CONFIG_FOR_VENDORS[vendor_name].requests
 
     now = time() # current timestamp in millis
     window_start = now - WINDOW # requests older than window_start i.e. less than it need to be removed

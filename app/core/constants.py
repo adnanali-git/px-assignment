@@ -1,16 +1,12 @@
 
 class Constants:
-    VENDORA_NAME = "vendorA"
-    VENDORA_ENDPOINT = "https://mocki.io/v1/e7517f58-f058-4208-bad7-9754ddf6e84b"
-
-    VENDORB_NAME = "vendorB"
-    VENDORB_ENDPOINT = "https://mocki.io/v1/243fab59-56dd-4315-a424-fa51e6983009"
-
-    VENDORC_NAME = "vendorC"
-    VENDORC_ENDPOINT = "https://mocki.io/v1/e7517f58-f058-4208-bad7-9754ddf6e84x"
 
     BEST_VENDOR_SELECTION_OOS_MESSAGE = "OUT_OF_STOCK"
 
+    """
+    even these can be customised (different timeout and retry-policy for different vendors)
+    the same way the RL and CB configs are customised
+    """
     # move to .env ??
     VENDOR_API_TIMEOUT = 2.0 # in seconds
     VENDOR_API_RETRIES = 2
